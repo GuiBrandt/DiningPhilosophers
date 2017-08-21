@@ -180,7 +180,7 @@ VOID draw_circle(GLfloat ox, GLfloat oy, GLfloat radius)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// Desenha um garfo
+// Desenha um hashi
 ///////////////////////////////////////////////////////////////////////////////
 VOID draw_hashi(GLfloat ox, GLfloat oy, GLfloat theta)
 {
@@ -355,10 +355,10 @@ VOID render(GLFWwindow* window)
                 break;
 
             case COMENDO:
-                draw_hashi(cos(theta - TABLE_RADIUS / PLATE_RADIUS * 2) * r, sin(theta - TABLE_RADIUS / PLATE_RADIUS * 2) * r, theta);
+                draw_hashi(cos(theta + TABLE_RADIUS / PLATE_RADIUS * 2) * r, sin(theta + TABLE_RADIUS / PLATE_RADIUS * 2) * r, theta);
 
             default:
-                draw_hashi(cos(theta + TABLE_RADIUS / PLATE_RADIUS * 2) * r, sin(theta + TABLE_RADIUS / PLATE_RADIUS * 2) * r, theta);
+                draw_hashi(cos(theta - TABLE_RADIUS / PLATE_RADIUS * 2) * r, sin(theta - TABLE_RADIUS / PLATE_RADIUS * 2) * r, theta);
                 break;
         }
     }
