@@ -13,49 +13,43 @@
 #define PI 3.14159265
 
 ///////////////////////////////////////////////////////////////////////////////
-// Configurações
+// ConfiguraÃ§Ãµes
 ///////////////////////////////////////////////////////////////////////////////
-#define N 5                              // Número de filósofos
-#define TABLE_RADIUS 0.7f                // Raio da mesa
-#define PLATE_RADIUS 0.7f  * 0.9f / N    // Raio do prato
-#define CIRCLE_ERROR 5                   // Divisor de precisão dos círculos
-
+#define N 5                                     // NÃºmero de filÃ³sofos
+#define TABLE_RADIUS 0.7f                       // Raio da mesa
+#define PLATE_RADIUS TABLE_RADIUS * 0.9f / N    // Raio do prato
+#define CIRCLE_ERROR 5                          // Divisor de precisÃ£o dos cÃ­rculos
 ///////////////////////////////////////////////////////////////////////////////
 // Tamanho dos lados da janela
 ///////////////////////////////////////////////////////////////////////////////
-#define WINDOW_SIZE 640
-
+#define WINDOW_SIZE 600
 ///////////////////////////////////////////////////////////////////////////////
-// Enumerador de estados possíveis para um filósofo
+// Enumerador de estados possÃ­veis para um filÃ³sofo
 ///////////////////////////////////////////////////////////////////////////////
 typedef enum __state {
     COMENDO,
     BLOQUEADO,
     ESPERANDO
 } ESTADO_FILOSOFO;
-
 ///////////////////////////////////////////////////////////////////////////////
-// Vetor de filósofos e threads
+// Vetor de filÃ³sofos e threads
 ///////////////////////////////////////////////////////////////////////////////
 ESTADO_FILOSOFO filosofos[N];
 DWORD timer_filosofos[N];
+HANDLE semaforos[N];
 HANDLE threads_filosofos[N];
-
 ///////////////////////////////////////////////////////////////////////////////
-// HINSTANCE do programa para carregamento de recursos da memória
+// HINSTANCE do programa para carregamento de recursos da memÃ³ria
 ///////////////////////////////////////////////////////////////////////////////
 HINSTANCE hInst;
-
 ///////////////////////////////////////////////////////////////////////////////
-// Procedimento dos filósofos
+// Procedimento dos filÃ³sofos
 ///////////////////////////////////////////////////////////////////////////////
 DWORD WINAPI fi_proc(LPVOID);
-
 ///////////////////////////////////////////////////////////////////////////////
 // Procedimento de desenho
 ///////////////////////////////////////////////////////////////////////////////
 VOID render(GLFWwindow*);
-
 ///////////////////////////////////////////////////////////////////////////////
 // Ponto de entrada
 ///////////////////////////////////////////////////////////////////////////////
@@ -89,6 +83,8 @@ int WINAPI WinMain (HINSTANCE hThisInstance,
     {
         filosofos[i] = ESPERANDO;
         threads_filosofos[i] = CreateThread(NULL, 0, fi_proc, (LPVOID)i, 0, NULL);
+
+        semaforos[i] = CreateSemaphore(NULL, 1, 1, NULL);
     }
 
     while (!glfwWindowShouldClose(window))
@@ -102,16 +98,18 @@ int WINAPI WinMain (HINSTANCE hThisInstance,
     //WaitForMultipleObjects(N, threads_filosofos, TRUE, INFINITE);
 
     for (i = 0; i < N; i++)
+    {
         TerminateThread(threads_filosofos[i], 0);
+        CloseHandle(semaforos[i]);
+    }
 
     glfwDestroyWindow(window);
     glfwTerminate();
 
     return 0;
 }
-
 ///////////////////////////////////////////////////////////////////////////////
-// Procedimento dos filósofos
+// Procedimento dos filÃ³sofos
 ///////////////////////////////////////////////////////////////////////////////
 DWORD WINAPI fi_proc(LPVOID param)
 {
@@ -121,13 +119,12 @@ DWORD WINAPI fi_proc(LPVOID param)
 
     while (1)
     {
-        // Espera enquanto estiver bloqueado
-        do
-        {
-            Sleep((rand() % 5 + 1) * 500);
-        } while (filosofos[n] == BLOQUEADO || filosofos[(n + 1) % N] != ESPERANDO);
+        HANDLE sem[2] = { semaforos[n], semaforos[(n + 1) % N] };
 
-        // Pega o garfo do filósofo à direita
+        // Espera enquanto estiver bloqueado
+        WaitForMultipleObjects(2, sem, TRUE, INFINITE);
+
+        // Pega o garfo do filÃ³sofo Ã  direita
         filosofos[(n + 1) % N] = BLOQUEADO;
 
         // Come
@@ -147,15 +144,17 @@ DWORD WINAPI fi_proc(LPVOID param)
         filosofos[(n + 1) % N] = ESPERANDO;
         printf("%d esta esperando\r\n", (n + 1) % N + 1);
 
+        ReleaseSemaphore(semaforos[n], 1, NULL);
+        ReleaseSemaphore(semaforos[(n + 1) % N], 1, NULL);
+
         // Espera um tempo
         Sleep((rand() % 5 + 1) * 1000);
     }
 
     return 0;
 }
-
 ///////////////////////////////////////////////////////////////////////////////
-// Desenha um círculo
+// Desenha um cÃ­rculo
 ///////////////////////////////////////////////////////////////////////////////
 VOID draw_circle(GLfloat ox, GLfloat oy, GLfloat radius)
 {
@@ -178,7 +177,6 @@ VOID draw_circle(GLfloat ox, GLfloat oy, GLfloat radius)
 
     glPopMatrix();
 }
-
 ///////////////////////////////////////////////////////////////////////////////
 // Desenha um hashi
 ///////////////////////////////////////////////////////////////////////////////
@@ -195,19 +193,16 @@ VOID draw_hashi(GLfloat ox, GLfloat oy, GLfloat theta)
     glRotatef(theta * 180 / PI, 0, 0, 1);
 
     glBegin(GL_QUADS);
-
-    glVertex2f(0, 0);
-    glVertex2f(size, 0);
-    glVertex2f(size, size * 0.05f);
-    glVertex2f(0, size * 0.05f);
-
+        glVertex2f(0, 0);
+        glVertex2f(size, 0);
+        glVertex2f(size, size * 0.05f);
+        glVertex2f(0, size * 0.05f);
     glEnd();
 
     glPopMatrix();
 }
-
 ///////////////////////////////////////////////////////////////////////////////
-// Desenha o prato do enésimo filósofo
+// Desenha o prato do enÃ©simo filÃ³sofo
 ///////////////////////////////////////////////////////////////////////////////
 VOID draw_plate(int n)
 {
@@ -217,6 +212,10 @@ VOID draw_plate(int n)
 
     ESTADO_FILOSOFO estado = filosofos[n];
 
+    glPushMatrix();
+    glTranslatef(ox, oy, 0);
+
+    // Deixa o prato colorido de acordo com o estado do filÃ³sofo
     switch (estado)
     {
         case BLOQUEADO:
@@ -232,18 +231,16 @@ VOID draw_plate(int n)
             break;
     }
 
-    glPushMatrix();
-    glTranslatef(ox, oy, 0);
-
     draw_circle(0, 0, PLATE_RADIUS);
 
     glColor3f(0.85f, 0.85f, 0.85f);
     draw_circle(0, 0, PLATE_RADIUS / 1.5f);
 
+    // Timer para fazer a comida desaparecer
     if (timer_filosofos[n] > 0)
         timer_filosofos[n]--;
 
-    // Sushi de Salmão
+    // Sushi de SalmÃ£o
     if (estado == COMENDO && timer_filosofos[n] >= 2100)
     {
         glPushMatrix();
@@ -256,7 +253,7 @@ VOID draw_plate(int n)
         draw_circle(0, 0, PLATE_RADIUS / 6);
 
         glColor3f(1, 0.5f, 0.3f);
-            glBegin(GL_QUADS);
+        glBegin(GL_QUADS);
             glVertex2f(0.5 * PLATE_RADIUS / 5, 0.5 * PLATE_RADIUS / 5);
             glVertex2f(-0.5 * PLATE_RADIUS / 5, 0.5 * PLATE_RADIUS / 5);
             glVertex2f(-0.5 * PLATE_RADIUS / 5, -0.5 * PLATE_RADIUS / 5);
@@ -330,7 +327,6 @@ VOID draw_plate(int n)
 
     glPopMatrix();
 }
-
 ///////////////////////////////////////////////////////////////////////////////
 // Procedimento de desenho
 ///////////////////////////////////////////////////////////////////////////////
@@ -349,6 +345,7 @@ VOID render(GLFWwindow* window)
 
         draw_plate(i);
 
+        // Desenha o nÃºmero certo de hashi dependendo do estado do filÃ³sofo
         switch (filosofos[i])
         {
             case BLOQUEADO:
