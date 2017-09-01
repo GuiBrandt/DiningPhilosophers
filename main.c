@@ -5,12 +5,13 @@
 #endif
 
 #include <math.h>
+#include <time.h>
 #include <tchar.h>
 #include <windows.h>
 #include <GLFW/glfw3.h>
 #include <stdio.h>
 
-#define PI 3.14159265
+#define PI 3.141592653589793238462684793
 
 ///////////////////////////////////////////////////////////////////////////////
 // Configurações
@@ -18,7 +19,7 @@
 #define N 5                                     // Número de filósofos
 #define TABLE_RADIUS 0.7f                       // Raio da mesa
 #define PLATE_RADIUS TABLE_RADIUS * 0.9f / N    // Raio do prato
-#define CIRCLE_ERROR 5                          // Divisor de precisão dos círculos
+#define CIRCLE_ERROR 8                          // Divisor de precisão dos círculos
 ///////////////////////////////////////////////////////////////////////////////
 // Tamanho dos lados da janela
 ///////////////////////////////////////////////////////////////////////////////
@@ -39,10 +40,6 @@ DWORD timer_filosofos[N];
 HANDLE semaforos[N];
 HANDLE threads_filosofos[N];
 ///////////////////////////////////////////////////////////////////////////////
-// HINSTANCE do programa para carregamento de recursos da memória
-///////////////////////////////////////////////////////////////////////////////
-HINSTANCE hInst;
-///////////////////////////////////////////////////////////////////////////////
 // Procedimento dos filósofos
 ///////////////////////////////////////////////////////////////////////////////
 DWORD WINAPI fi_proc(LPVOID);
@@ -58,7 +55,7 @@ int WINAPI WinMain (HINSTANCE hThisInstance,
                      LPSTR lpszArgument,
                      int nCmdShow)
 {
-    hInst = hThisInstance;
+	srand(time(NULL));
 
     if (!glfwInit())
     {
@@ -95,8 +92,6 @@ int WINAPI WinMain (HINSTANCE hThisInstance,
         glfwPollEvents();
     }
 
-    //WaitForMultipleObjects(N, threads_filosofos, TRUE, INFINITE);
-
     for (i = 0; i < N; i++)
     {
         TerminateThread(threads_filosofos[i], 0);
@@ -115,7 +110,7 @@ DWORD WINAPI fi_proc(LPVOID param)
 {
     int n = (int)param;
 
-    Sleep((rand() % 5 + 1) * 1000);
+    Sleep((rand() % 3 + 1) * 500);
 
     while (1)
     {
@@ -124,15 +119,17 @@ DWORD WINAPI fi_proc(LPVOID param)
         // Espera enquanto estiver bloqueado
         WaitForMultipleObjects(2, sem, TRUE, INFINITE);
 
+        Sleep((rand() % 4 + 1) * 250);
+
         // Pega o garfo do filósofo à direita
         filosofos[(n + 1) % N] = BLOQUEADO;
 
         // Come
         filosofos[n] = COMENDO;
-        printf("%d esta comendo\r\n", n + 1);
         printf("%d esta bloqueado\r\n", (n + 1) % N + 1);
-
-        timer_filosofos[n] = (rand() % 5 + 1) * 1000;
+      	printf("%d esta comendo\r\n", n + 1);
+ 
+        timer_filosofos[n] = (rand() % 4 + 1) * 1000;
 
         // Espera um tempo
         Sleep(timer_filosofos[n]);
@@ -148,7 +145,7 @@ DWORD WINAPI fi_proc(LPVOID param)
         ReleaseSemaphore(semaforos[(n + 1) % N], 1, NULL);
 
         // Espera um tempo
-        Sleep((rand() % 5 + 1) * 1000);
+        Sleep((rand() % 3 + 1) * 250);
     }
 
     return 0;
@@ -314,7 +311,7 @@ VOID draw_plate(int n)
             glVertex2f(0.5 * PLATE_RADIUS / 5, -0.5 * PLATE_RADIUS / 5);
         glEnd();
 
-        glColor3f(0.6f, 1, 0.6f);
+        glColor3f(0.7f, 1, 0.7f);
         glBegin(GL_QUADS);
             glVertex2f(0.5 * PLATE_RADIUS / 5, 0.5 * PLATE_RADIUS / 5);
             glVertex2f(-0.5 * PLATE_RADIUS / 5, 0.5 * PLATE_RADIUS / 5);
@@ -335,15 +332,16 @@ VOID render(GLFWwindow* window)
     glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
 
+    // Desenha a mesa
     glColor3ub(104, 47, 14);
     draw_circle(0.0f, 0.0f, TABLE_RADIUS);
 
     int i;
     for (i = 0; i < N; i++)
     {
-        GLfloat theta = 2 * PI / N * i, r = (TABLE_RADIUS - PLATE_RADIUS) * 0.9f;
-
         draw_plate(i);
+
+        GLfloat theta = 2 * PI / N * i, r = (TABLE_RADIUS - PLATE_RADIUS) * 0.9f;
 
         // Desenha o número certo de hashi dependendo do estado do filósofo
         switch (filosofos[i])
